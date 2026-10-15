@@ -868,7 +868,7 @@ export const PlayerProvider = ({ children }) => {
     }
   };
 
-  const currentTrack = queue[currentTrackIndex] || {};
+  const currentTrack = (queue && queue[currentTrackIndex]) || (queue && queue[0]) || DEFAULT_DEMO_TRACKS[0];
 
   // Persistence
   useEffect(() => {

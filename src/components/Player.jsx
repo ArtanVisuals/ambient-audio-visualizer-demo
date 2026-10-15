@@ -16,7 +16,7 @@ import {
   SPATIAL_PRESETS 
 } from "../utils/spatialAudio";
 import { copyToClipboard } from "../utils/clipboard";
-import { usePlayer } from "../context/PlayerContext";
+import { usePlayer, DEFAULT_DEMO_TRACKS } from "../context/PlayerContext";
 import { MarqueeText } from "./MarqueeText";
 import { InteractiveParticles } from "./InteractiveParticles";
 import { WebGLAmbientBackground } from "./WebGLAmbientBackground";
@@ -2670,7 +2670,7 @@ export function Player() {
   );
 
 
-  const FullPlayer = isExpanded && (
+  const FullPlayer = (isExpanded !== false) && (
     <div 
       ref={fullPlayerRef}
       className="fixed inset-0 z-50 flex h-[100dvh] w-screen flex-col animate-in fade-in duration-500"
