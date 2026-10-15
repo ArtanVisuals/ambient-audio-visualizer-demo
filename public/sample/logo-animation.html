@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aura Logo Animation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #08081a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    canvas { display: block; }
+    #replay {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 28px;
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #c084fc;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      letter-spacing: 1px;
+      font-family: sans-serif;
+      transition: all 0.3s ease;
+      z-index: 10;
+    }
+    #replay:hover {
+      background: rgba(168, 85, 247, 0.3);
+      border-color: rgba(168, 85, 247, 0.7);
+      color: #e9d5ff;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <button id="replay">REPLAY</button>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+
+    let W, H, dpr;
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // ──── Configuration ────
+    const RADIUS = 72;
+    const DURATION = 4000;
+
+    const PURPLE       = '#a855f7';
+    const LIGHT_PURPLE  = '#c084fc';
+    const PINK_PURPLE   = '#d8b4fe';
+    const WHITE         = '#f5f0ff';
+
+    // ──── Easings ────
+    function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2; }
+
+    // ──── Drawing helpers ────
+    function drawNeonArc(cx, cy, r, start, end, width, glowSize, opacity) {
+      if (opacity <= 0 || Math.abs(end - start) < 0.001) return;
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      ctx.lineCap = 'round';
+
+      ctx.shadowColor = PURPLE;
+      ctx.shadowBlur = glowSize;
+      ctx.strokeStyle = PURPLE;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, start, end);
+      ctx.stroke();
+
+      ctx.shadowColor = LIGHT_PURPLE;
+      ctx.shadowBlur = glowSize * 0.5;
+      ctx.strokeStyle = LIGHT_PURPLE;
+      ctx.lineWidth = width * 0.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, start, end);
+      ctx.stroke();
+
+      ctx.shadowBlur = glowSize * 0.18;
+      ctx.shadowColor = PINK_PURPLE;
+      ctx.strokeStyle = PINK_PURPLE;
+      ctx.lineWidth = width * 0.2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, start, end);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawNeonCircle(cx, cy, r, width, glowSize, opacity) {
+      drawNeonArc(cx, cy, r, 0, Math.PI * 2, width, glowSize, opacity);
+    }
+
+    function drawBrightPoint(x, y, r, glowSize, opacity) {
+      if (opacity <= 0) return;
+      ctx.save();
+      ctx.globalAlpha = opacity;
+
+      const halo = ctx.createRadialGradient(x, y, 0, x, y, glowSize);
+      halo.addColorStop(0, 'rgba(216, 180, 254, 0.6)');
+      halo.addColorStop(0.25, 'rgba(168, 85, 247, 0.2)');
+      halo.addColorStop(1, 'rgba(168, 85, 247, 0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(x, y, glowSize, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 15;
+      ctx.fillStyle = WHITE;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawAmbientGlow(cx, cy, intensity) {
+      if (intensity <= 0) return;
+      ctx.save();
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, RADIUS * 2.5);
+      grad.addColorStop(0, `rgba(168, 85, 247, ${0.1 * intensity})`);
+      grad.addColorStop(0.4, `rgba(168, 85, 247, ${0.03 * intensity})`);
+      grad.addColorStop(1, 'rgba(168, 85, 247, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, RADIUS * 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    let animStart = performance.now();
+
+    function animate(now) {
+      const elapsed = now - animStart;
+      const t = Math.min(elapsed / DURATION, 1);
+
+      ctx.clearRect(0, 0, W, H);
+
+      const cx = W / 2;
+      const cy = H / 2;
+
+      // Dark background
+      ctx.fillStyle = '#08081a';
+      ctx.fillRect(0, 0, W, H);
+
+      // Phase 1 (0.00 → 0.60): Tracing circle arc
+      if (t < 0.60) {
+        const p = easeInOutCubic(t / 0.60);
+        const startAngle = -Math.PI / 2;
+        const endAngle = startAngle + p * Math.PI * 2;
+
+        drawAmbientGlow(cx, cy, p * 0.5);
+        drawNeonArc(cx, cy, RADIUS, startAngle, endAngle, 3.5, 25, 1);
+
+        // Bright tracing tip
+        const tipX = cx + RADIUS * Math.cos(endAngle);
+        const tipY = cy + RADIUS * Math.sin(endAngle);
+        drawBrightPoint(tipX, tipY, 4, 30, 1);
+      } 
+      // Phase 2 (0.60 → 0.85): Ring thickening & interior filling
+      else if (t < 0.85) {
+        const p = easeInOutCubic((t - 0.60) / 0.25);
+        const ringW = 3.5 + p * 16.0; // from 3.5 to 19.5
+
+        drawAmbientGlow(cx, cy, 0.5 + p * 0.5);
+        drawNeonCircle(cx, cy, RADIUS, ringW, 25 + p * 7, 1);
+
+        // Draw interior fill
+        ctx.save();
+        ctx.globalAlpha = p;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, RADIUS - ringW / 2 + 2);
+        grad.addColorStop(0, '#0c0418');
+        grad.addColorStop(0.5, '#10062a');
+        grad.addColorStop(1, '#1a0b3d');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.max(1, RADIUS - ringW / 2 + 2), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } 
+      // Phase 3 (0.85 → 1.00): Breathing glow
+      else {
+        const cycle = (elapsed - DURATION * 0.85) / 1000;
+        const breathe = 1 + 0.05 * Math.sin(cycle * Math.PI); // subtle scale factor for glow
+        const ringW = 19.5;
+
+        drawAmbientGlow(cx, cy, breathe);
+        drawNeonCircle(cx, cy, RADIUS, ringW, 32 * breathe, 1);
+
+        // Draw interior fill
+        ctx.save();
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, RADIUS - ringW / 2 + 2);
+        grad.addColorStop(0, '#0c0418');
+        grad.addColorStop(0.5, '#10062a');
+        grad.addColorStop(1, '#1a0b3d');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.max(1, RADIUS - ringW / 2 + 2), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+
+    document.getElementById('replay').addEventListener('click', () => {
+      animStart = performance.now();
+    });
+  </script>
+</body>
+</html>
