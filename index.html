@@ -2,223 +2,687 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ambient Audio Reactive Visualizer Engine — Live Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sonora — Now Playing & Ambient Visualizer Engine</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    :root {
+      --theme-bg: #090a09;
+      --theme-bg-rgb: 9, 10, 9;
+      --sage-300: #a7f3d0;
+      --sage-400: #6ee7b7;
+      --sage-500: #34d399;
+      --ambient-r: 110;
+      --ambient-g: 231;
+      --ambient-b: 183;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
     body, html {
-      width: 100%; height: 100%; overflow: hidden;
-      background: #090a09; color: #fff;
-      font-family: "Plus Jakarta Sans", -apple-system, sans-serif;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--theme-bg);
+      color: #fff;
+      font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
+
     #glcanvas {
-      position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 1;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
     }
-    .ui-layer {
-      position: absolute; inset: 0; z-index: 10;
-      display: flex; flex-direction: column; justify-content: space-between;
-      padding: 24px; pointer-events: none;
-      transition: opacity 0.4s ease;
+
+    /* ═══ FULL NOW PLAYING LAYOUT (1:1 SONORA REPLICA) ═══ */
+    .now-playing-container {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100dvh;
+      width: 100vw;
+      pointer-events: none;
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .interactive { pointer-events: auto; }
-    
-    .glass-card {
-      background: rgba(18, 22, 20, 0.65);
-      backdrop-filter: blur(24px) saturate(180%);
-      -webkit-backdrop-filter: blur(24px) saturate(180%);
+
+    /* Top Bar */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 36px;
+      width: 100%;
+      position: relative;
+      z-index: 20;
+    }
+
+    .status-clock {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: rgba(255, 255, 255, 0.75);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .top-title {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.28em;
+      color: rgba(255, 255, 255, 0.38);
+      pointer-events: none;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      height: 38px;
+      padding: 0 16px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
       border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 20px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    }
-    
-    .header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 22px; width: 100%; max-width: 1200px; margin: 0 auto;
-    }
-    .brand {
-      display: flex; align-items: center; gap: 12px;
-    }
-    .brand-logo {
-      width: 38px; height: 38px; border-radius: 12px;
-      background: linear-gradient(135deg, #10b981, #06b6d4, #8b5cf6);
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
-    }
-    .brand-title {
-      font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: #fff;
-    }
-    .brand-badge {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
-      padding: 2px 8px; border-radius: 20px;
-      background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3);
-    }
-    
-    .dock {
-      align-self: center; display: flex; flex-direction: column; gap: 14px;
-      padding: 16px 24px; max-width: 760px; width: 100%; margin: 0 auto;
-    }
-    .dock-row {
-      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    }
-    
-    .btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 10px 20px; border-radius: 14px;
-      font-size: 13px; font-weight: 600; cursor: pointer;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: rgba(255, 255, 255, 0.08); color: #fff;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.85);
+      cursor: pointer;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       outline: none;
     }
-    .btn:hover {
-      background: rgba(255, 255, 255, 0.16); transform: translateY(-1px);
+    .pill-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+      transform: translateY(-1px);
     }
-    .btn:active { transform: translateY(1px); }
-    .btn-primary {
-      background: #10b981; color: #022c22; border-color: rgba(16, 185, 129, 0.4);
-      box-shadow: 0 0 25px rgba(16, 185, 129, 0.35);
+    .pill-btn:active { transform: translateY(1px); }
+    .pill-btn-primary {
+      background: rgba(16, 185, 129, 0.18);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
     }
-    .btn-primary:hover {
-      background: #34d399; box-shadow: 0 0 35px rgba(16, 185, 129, 0.55);
-    }
-    
-    .preset-pill {
-      padding: 6px 14px; border-radius: 12px; font-size: 12px; font-weight: 500;
-      border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.04);
-      color: rgba(255, 255, 255, 0.7); cursor: pointer; transition: all 0.2s;
-    }
-    .preset-pill.active {
-      background: rgba(255, 255, 255, 0.18); color: #fff; border-color: rgba(255, 255, 255, 0.3);
-      box-shadow: 0 0 15px rgba(255, 255, 255, 0.15);
-    }
-    
-    .slider-group {
-      display: flex; align-items: center; gap: 10px; font-size: 12px; color: rgba(255, 255, 255, 0.7);
-    }
-    input[type=range] {
-      appearance: none; -webkit-appearance: none;
-      height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.2); outline: none; width: 100px;
-    }
-    input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
-      background: #10b981; cursor: pointer; box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
-    }
-    
-    .hidden-input { display: none; }
-    
-    .status-meter {
-      display: flex; align-items: center; gap: 6px; font-size: 11px;
-      color: rgba(255, 255, 255, 0.5); font-weight: 500;
-    }
-    .meter-bar {
-      width: 40px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; overflow: hidden;
-    }
-    .meter-fill {
-      height: 100%; width: 0%; background: #10b981; transition: width 0.08s;
+    .pill-btn-primary:hover {
+      background: rgba(16, 185, 129, 0.28);
+      border-color: rgba(16, 185, 129, 0.6);
+      color: #fff;
     }
 
-    .hide-ui-hint {
-      position: absolute; bottom: 20px; right: 24px;
-      font-size: 11px; color: rgba(255, 255, 255, 0.35);
-      pointer-events: auto; cursor: pointer;
-      padding: 6px 12px; border-radius: 20px;
-      background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.08);
+    /* Main Stage (Album Art + Info + Waveform) */
+    .main-stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 24px;
+      gap: 60px;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
     }
-    .hide-ui-hint:hover { color: #fff; background: rgba(0, 0, 0, 0.7); }
+
+    /* Album Art Card */
+    .album-art-wrap {
+      position: relative;
+      width: 360px;
+      height: 360px;
+      max-width: 38vw;
+      max-height: 38vw;
+      flex-shrink: 0;
+    }
+    .album-glow {
+      position: absolute;
+      inset: -12%;
+      border-radius: 48px;
+      background-size: cover;
+      background-position: center;
+      filter: blur(50px) saturate(220%);
+      opacity: 0.65;
+      z-index: 1;
+      transition: all 0.8s ease;
+      transform: translateZ(0);
+      animation: pulseGlow 4s ease-in-out infinite alternate;
+    }
+    @keyframes pulseGlow {
+      0% { transform: scale(0.96); opacity: 0.55; }
+      100% { transform: scale(1.04); opacity: 0.80; }
+    }
+
+    .album-card {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      border-radius: 36px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+    }
+    .album-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 26px;
+      display: block;
+      transition: transform 0.5s ease;
+    }
+
+    /* Controls Column */
+    .player-column {
+      flex: 1;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .track-meta {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .track-title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      color: #fff;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .track-artist {
+      font-size: 15px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 6px;
+    }
+    .heart-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.35);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .heart-btn:hover { color: #fff; }
+    .heart-btn.liked { color: #f43f5e; }
+
+    /* Waveform Progress */
+    .waveform-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .waveform-bars {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 48px;
+      cursor: pointer;
+      padding: 4px 0;
+    }
+    .wave-bar {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+      min-height: 6px;
+      transition: background 0.2s, height 0.15s ease-out;
+    }
+    .wave-bar.active {
+      background: #6ee7b7;
+      box-shadow: 0 0 8px rgba(110, 231, 183, 0.6);
+    }
+    .time-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.4);
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    /* Playback Buttons Dock */
+    .controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 8px;
+    }
+    .ctrl-btn {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.55);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      transition: all 0.2s;
+    }
+    .ctrl-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+      transform: scale(1.05);
+    }
+    .ctrl-btn:active { transform: scale(0.95); }
+
+    .play-btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: #fff;
+      color: #000;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 30px rgba(255, 255, 255, 0.3);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .play-btn:hover {
+      transform: scale(1.08);
+      box-shadow: 0 15px 40px rgba(255, 255, 255, 0.5);
+    }
+    .play-btn:active { transform: scale(0.96); }
+
+    /* Volume Row */
+    .volume-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 12px;
+    }
+    .volume-slider {
+      flex: 1;
+      appearance: none;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+      cursor: pointer;
+    }
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+    }
+
+    /* ═══ YOUTUBE FETCH MODAL ═══ */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 520px;
+      background: rgba(18, 22, 20, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 28px;
+      padding: 30px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8);
+      transform: scale(0.94);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-overlay.open .modal-card {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .modal-close {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .yt-input-wrap {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .yt-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      padding: 12px 18px;
+      font-size: 14px;
+      color: #fff;
+      outline: none;
+      font-family: inherit;
+    }
+    .yt-input:focus {
+      border-color: #6ee7b7;
+      box-shadow: 0 0 15px rgba(110, 231, 183, 0.2);
+    }
+
+    .sample-links {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sample-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: rgba(255, 255, 255, 0.4);
+      margin-bottom: 4px;
+    }
+    .sample-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .sample-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Clean Visualizer Mode Floating Pill */
+    .exit-hint {
+      position: fixed;
+      top: 24px;
+      right: 36px;
+      z-index: 150;
+      padding: 8px 18px;
+      border-radius: 9999px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(20px);
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s;
+    }
+    .exit-hint.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Hidden iframe for actual YT streaming audio */
+    #yt-player-container {
+      position: absolute;
+      top: -9999px;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      pointer-events: none;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 840px) {
+      .main-stage {
+        flex-direction: column;
+        gap: 24px;
+        padding-bottom: 24px;
+      }
+      .album-art-wrap {
+        width: 220px;
+        height: 220px;
+        max-width: 55vw;
+        max-height: 55vw;
+      }
+      .top-title { display: none; }
+      .top-bar { padding: 16px 20px; }
+      .track-title { font-size: 22px; }
+    }
   </style>
 </head>
 <body>
+  <!-- WebGL Ambient Reactive Fluid Background -->
   <canvas id="glcanvas"></canvas>
 
-  <div class="ui-layer" id="uiLayer">
-    <!-- Header -->
-    <header class="header glass-card interactive">
-      <div class="brand">
-        <div class="brand-logo">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        </div>
-        <div>
-          <div class="brand-title">Ambient Audio Visualizer Engine</div>
-          <div class="status-meter">
-            <span>Audio Reactive Shader</span>
-            <div class="meter-bar"><div class="meter-fill" id="meterBass"></div></div>
-            <span id="fpsCounter">60 FPS</span>
-          </div>
-        </div>
-      </div>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span class="brand-badge">Codester Certified</span>
-        <button class="btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+  <!-- Hidden YouTube Audio Engine -->
+  <div id="yt-player-container">
+    <div id="yt-player"></div>
+  </div>
+
+  <!-- Now Playing Screen -->
+  <div class="now-playing-container" id="nowPlayingUI">
+    <!-- Top Bar -->
+    <header class="top-bar interactive">
+      <div class="status-clock" id="statusClock">12:00 PM</div>
+      <div class="top-title">Now Playing</div>
+      <div class="top-actions">
+        <!-- Paste YouTube Link Button -->
+        <button class="pill-btn pill-btn-primary" onclick="openYtModal()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span>Fetch YouTube Audio</span>
+        </button>
+
+        <!-- Clean Visualizer Mode -->
+        <button class="pill-btn" onclick="toggleCleanVisualizer()" title="Hide UI [H]">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>Visualizer Only</span>
+        </button>
       </div>
     </header>
 
-    <!-- Bottom Dock Controls -->
-    <div class="dock glass-card interactive">
-      <!-- Row 1: Audio Sources -->
-      <div class="dock-row">
-        <div style="display:flex; gap:10px; align-items:center;">
-          <button class="btn btn-primary" id="btnPlayDemo" onclick="toggleDemoAudio()">
-            <span id="playIcon">▶</span> <span id="playLabel">Play Demo Audio</span>
-          </button>
-          <button class="btn" id="btnMic" onclick="toggleMicrophone()">
-            🎤 Mic Input
-          </button>
-          <label class="btn" style="cursor:pointer;">
-            📁 Load MP3
-            <input type="file" id="fileInput" accept="audio/*" class="hidden-input" onchange="handleFileSelect(event)">
-          </label>
-        </div>
-
-        <div style="display:flex; gap:8px; align-items:center;">
-          <span style="font-size:11px; text-transform:uppercase; font-weight:700; color:rgba(255,255,255,0.4);">Mode</span>
-          <button class="preset-pill active" id="modeFluid" onclick="setVisualizerMode(0)">Fluid</button>
-          <button class="preset-pill" id="modeWaves" onclick="setVisualizerMode(1)">Waves</button>
-          <button class="preset-pill" id="modeBoth" onclick="setVisualizerMode(2)">Both</button>
+    <!-- Main Content -->
+    <main class="main-stage">
+      <!-- Album Art with dynamic ambient glow -->
+      <div class="album-art-wrap interactive">
+        <div class="album-glow" id="albumGlow" style="background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80');"></div>
+        <div class="album-card">
+          <img id="albumImg" class="album-img" src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80" alt="Cover" />
         </div>
       </div>
 
-      <!-- Row 2: Color Themes & Sliders -->
-      <div class="dock-row" style="border-top:1px solid rgba(255,255,255,0.08); padding-top:12px;">
-        <div style="display:flex; gap:6px; align-items:center;">
-          <span style="font-size:11px; text-transform:uppercase; font-weight:700; color:rgba(255,255,255,0.4); margin-right:4px;">Palette</span>
-          <button class="preset-pill active" onclick="setTheme(0)">Cyberpunk</button>
-          <button class="preset-pill" onclick="setTheme(1)">Emerald</button>
-          <button class="preset-pill" onclick="setTheme(2)">Sunset</button>
-          <button class="preset-pill" onclick="setTheme(3)">Amethyst</button>
+      <!-- Player Controls Column -->
+      <div class="player-column interactive">
+        <div class="track-meta">
+          <div style="flex:1; min-width:0;">
+            <h1 class="track-title" id="trackTitle">Ambient Pulse</h1>
+            <p class="track-artist" id="trackArtist">Sonora Studio • Ambient Engine</p>
+          </div>
+          <button class="heart-btn" id="btnLike" onclick="toggleLike()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+          </button>
         </div>
 
-        <div style="display:flex; gap:16px; align-items:center;">
-          <div class="slider-group">
-            <span>Glow</span>
-            <input type="range" id="glowSlider" min="0.5" max="2.5" step="0.1" value="1.4" oninput="updateGlow(this.value)">
+        <!-- Waveform Progress -->
+        <div class="waveform-container">
+          <div class="waveform-bars" id="waveformBars" onclick="handleSeek(event)">
+            <!-- 48 Dynamic Waveform Bars will be rendered here -->
           </div>
-          <div class="slider-group">
-            <span>Speed</span>
-            <input type="range" id="speedSlider" min="0.2" max="2.0" step="0.1" value="1.0" oninput="updateSpeed(this.value)">
+          <div class="time-row">
+            <span id="timeCurrent">0:00</span>
+            <span id="timeTotal">3:30</span>
           </div>
+        </div>
+
+        <!-- Playback Controls -->
+        <div class="controls-row">
+          <button class="ctrl-btn" title="Shuffle" onclick="toggleShuffle()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+          </button>
+          <button class="ctrl-btn" title="Previous" onclick="skipPrev()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="3"/></svg>
+          </button>
+          <button class="play-btn" id="playBtn" onclick="togglePlay()">
+            <svg id="playIconSvg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+          </button>
+          <button class="ctrl-btn" title="Next" onclick="skipNext()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="3"/></svg>
+          </button>
+          <button class="ctrl-btn" title="Repeat" onclick="toggleRepeat()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+          </button>
+        </div>
+
+        <!-- Volume -->
+        <div class="volume-row">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          <input type="range" class="volume-slider" min="0" max="1" step="0.01" value="0.85" oninput="setVolume(this.value)">
         </div>
       </div>
-    </div>
+    </main>
 
-    <!-- Hide UI hint -->
-    <div class="hide-ui-hint" onclick="toggleUIVisibility()">
-      Press <kbd style="background:rgba(255,255,255,0.2); padding:1px 5px; border-radius:4px; font-family:monospace;">H</kbd> to Hide UI
+    <!-- Bottom Spacing -->
+    <div style="height: 24px;"></div>
+  </div>
+
+  <!-- Exit Clean Visualizer Hint -->
+  <div class="exit-hint" id="exitHint" onclick="toggleCleanVisualizer()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+    <span>Visualizer Only &bull; Click anywhere or press H to exit</span>
+  </div>
+
+  <!-- YouTube Link Fetcher Modal -->
+  <div class="modal-overlay" id="ytModal" onclick="closeYtModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="#f43f5e"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="#fff"/></svg>
+          <span>Fetch YouTube Audio</span>
+        </div>
+        <button class="modal-close" onclick="closeYtModal()">✕</button>
+      </div>
+
+      <div class="yt-input-wrap">
+        <input type="text" id="ytUrlInput" class="yt-input" placeholder="Paste YouTube link (e.g. https://www.youtube.com/watch?v=...)" onkeydown="if(event.key==='Enter') fetchCustomYtTrack()" />
+        <button class="pill-btn pill-btn-primary" onclick="fetchCustomYtTrack()">Fetch</button>
+      </div>
+
+      <div class="sample-links">
+        <div class="sample-title">Or Try A One-Click Demo Track:</div>
+        <div class="sample-item" onclick="loadSampleYt('jfKfPfyJRdk', 'lofi hip hop radio - beats to relax/study to', 'Lofi Girl')">
+          <div>
+            <div style="font-weight:600; font-size:13px;">Lofi Hip Hop Chill Beats</div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5);">Lofi Girl &bull; Atmospheric Relax</div>
+          </div>
+          <span style="color:#6ee7b7; font-size:12px; font-weight:700;">▶ Load</span>
+        </div>
+
+        <div class="sample-item" onclick="loadSampleYt('4xDzrJKXOOY', 'synthwave radio - chill synth / retro beats', 'Lofi Girl Synthwave')">
+          <div>
+            <div style="font-weight:600; font-size:13px;">Neon Synthwave Retro Radio</div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5);">Retro Chill &bull; Cyberpunk Vibe</div>
+          </div>
+          <span style="color:#6ee7b7; font-size:12px; font-weight:700;">▶ Load</span>
+        </div>
+
+        <div class="sample-item" onclick="loadSampleYt('21X5lGlDOfg', 'Deep Space Ambient Relaxation', 'Space Ambient')">
+          <div>
+            <div style="font-weight:600; font-size:13px;">Deep Space Ambient Journey</div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5);">Cosmic Meditation &bull; Gentle Drift</div>
+          </div>
+          <span style="color:#6ee7b7; font-size:12px; font-weight:700;">▶ Load</span>
+        </div>
+      </div>
     </div>
   </div>
 
+  <!-- WebGL Shader Script & Audio Logic -->
   <script>
     // ══════════════════════════════════════════════════════════════════════════
-    // 1. WebGL Shader & Engine Setup
+    // 1. WebGL Ambient Background Shader Engine (Authentic Sonora GPU Engine)
     // ══════════════════════════════════════════════════════════════════════════
     const canvas = document.getElementById("glcanvas");
     const gl = canvas.getContext("webgl", { powerPreference: "high-performance", alpha: false });
-
-    if (!gl) {
-      alert("WebGL not supported on this browser");
-    }
 
     const VERT_SRC = `
       attribute vec2 a_pos;
@@ -239,9 +703,6 @@
       uniform float u_mids;
       uniform float u_highs;
       uniform float u_energy;
-      uniform float u_glow;
-      uniform float u_speed;
-      uniform float u_mode; // 0=fluid, 1=waves, 2=both
 
       uniform vec3  u_c1;
       uniform vec3  u_c2;
@@ -267,80 +728,43 @@
         return exp(-(d * d) / (radius * radius * 0.45));
       }
 
-      // Minimal glowing wave ribbons
-      vec3 calcWaves(vec2 uv, float t, vec3 c1, vec3 c2, vec3 c3) {
-        vec2 p = (uv - vec2(0.5)) * vec2(u_res.x / min(u_res.x, u_res.y), u_res.y / min(u_res.x, u_res.y));
-        float wt = t * 0.35;
-        vec3 colSum = vec3(0.0);
-
-        for (int i = 0; i < 5; i++) {
-          float fi = float(i);
-          float offset = (fi - 2.0) * 0.09;
-          float freq = 1.8 + fi * 0.35;
-          float speed = 0.6 + fi * 0.12;
-          float wave = sin(p.x * freq + wt * speed + fi * 1.4) * (0.09 + fi * 0.015 + u_bass * 0.04)
-                     + cos(p.x * 0.9 - wt * 0.35 + fi * 0.8) * 0.055;
-          float dist = abs(p.y - wave - offset);
-          float lineGlow = 0.0035 / (dist + 0.0075);
-          float auraGlow = 0.0018 / (dist * dist * 5.0 + 0.065);
-          vec3 wCol = mix(c1, c2, fi / 4.0);
-          wCol = mix(wCol, c3, sin(p.x * 1.2 + wt * 0.6 + fi) * 0.5 + 0.5);
-          colSum += wCol * (lineGlow + auraGlow);
-        }
-        float edgeFade = smoothstep(1.7, 0.45, length(p.x * 0.65));
-        return clamp(colSum * edgeFade * (0.9 + u_energy * 0.6), 0.0, 3.0);
-      }
-
       void main() {
         vec2 uv = v_uv;
-        float t = u_time * u_speed;
+        float t = u_time;
 
         // Fluid noise distortion
         float fluidNoise = (noise(uv * 2.5 + vec2(t * 0.25, -t * 0.18)) - 0.5) * (0.05 + u_bass * 0.12);
         vec2 fUv = uv + vec2(fluidNoise * 0.8, fluidNoise * 1.2);
 
-        // Orbital centers reacting to frequency bands
+        // Orbital paths reacting dynamically to music frequencies
         float a1 = t * 0.45 + u_bass * 1.5;
-        vec2 cCenter1 = vec2(0.25, 0.75) + vec2(cos(a1), sin(a1)) * (0.10 + u_bass * 0.16);
+        vec2 center1 = vec2(0.20, 0.80) + vec2(cos(a1), sin(a1)) * (0.10 + u_bass * 0.16);
 
         float a2 = t * 0.32 + u_mids * 1.4;
-        vec2 cCenter2 = vec2(0.75, 0.25) + vec2(sin(a2), cos(a2)) * (0.10 + u_mids * 0.14);
+        vec2 center2 = vec2(0.80, 0.20) + vec2(sin(a2), cos(a2)) * (0.10 + u_mids * 0.14);
 
         float a3 = t * 0.25 + u_highs * 1.3;
-        vec2 cCenter3 = vec2(0.50, 0.50) + vec2(cos(a3), -sin(a3)) * (0.08 + u_highs * 0.12);
+        vec2 center3 = vec2(0.50, 0.50) + vec2(cos(a3), -sin(a3)) * (0.08 + u_highs * 0.12);
 
-        // Dynamic radiant glows
-        float r1 = 0.42 * (1.0 + u_bass * 0.85);
-        vec3 col1 = u_c1 * orbGrad(fUv, cCenter1, r1) * (0.12 + u_bass * 1.1) * u_glow;
+        // Radiant glows
+        float r1 = 0.44 * (1.0 + u_bass * 0.85);
+        vec3 col1 = u_c1 * orbGrad(fUv, center1, r1) * (0.15 + u_bass * 1.1) * 1.4;
 
-        float r2 = 0.38 * (1.0 + u_mids * 0.80);
-        vec3 col2 = u_c2 * orbGrad(fUv, cCenter2, r2) * (0.12 + u_mids * 1.0) * u_glow;
+        float r2 = 0.40 * (1.0 + u_mids * 0.80);
+        vec3 col2 = u_c2 * orbGrad(fUv, center2, r2) * (0.15 + u_mids * 1.0) * 1.4;
 
-        float r3 = 0.32 * (1.0 + u_highs * 0.70);
-        vec3 col3 = u_c3 * orbGrad(fUv, cCenter3, r3) * (0.10 + u_highs * 0.9) * u_glow;
+        float r3 = 0.34 * (1.0 + u_highs * 0.70);
+        vec3 col3 = u_c3 * orbGrad(fUv, center3, r3) * (0.12 + u_highs * 0.9) * 1.4;
 
         // Screen blending
         vec3 fluidColor = 1.0 - (1.0 - col1) * (1.0 - col2);
         fluidColor = 1.0 - (1.0 - fluidColor) * (1.0 - col3);
 
-        vec3 finalColor = u_bg;
+        vec3 finalColor = mix(u_bg, fluidColor, 0.88);
 
-        if (u_mode < 0.5) {
-          // Fluid only
-          finalColor = mix(u_bg, fluidColor, 0.85);
-        } else if (u_mode < 1.5) {
-          // Waves only
-          vec3 waves = calcWaves(uv, t, u_c1, u_c2, u_c3) * u_glow;
-          finalColor = u_bg + waves;
-        } else {
-          // Both
-          vec3 waves = calcWaves(uv, t, u_c1, u_c2, u_c3) * u_glow;
-          finalColor = mix(u_bg, fluidColor, 0.75) + waves;
-        }
-
-        // Soft cinematic vignette
-        float vig = length(v_uv - vec2(0.5)) * 1.3;
-        finalColor = mix(finalColor, u_bg, clamp(vig * vig * 0.6, 0.0, 1.0));
+        // Vignette
+        float vig = length(v_uv - vec2(0.5)) * 1.35;
+        finalColor = mix(finalColor, u_bg, clamp(vig * vig * 0.65, 0.0, 1.0));
 
         gl_FragColor = vec4(finalColor, 1.0);
       }
@@ -350,11 +774,6 @@
       const s = gl.createShader(type);
       gl.shaderSource(s, src);
       gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-        console.error(gl.getShaderInfoLog(s));
-        gl.deleteShader(s);
-        return null;
-      }
       return s;
     }
 
@@ -372,16 +791,12 @@
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
-    // Uniform locations
     const uRes = gl.getUniformLocation(prog, "u_res");
     const uTime = gl.getUniformLocation(prog, "u_time");
     const uBass = gl.getUniformLocation(prog, "u_bass");
     const uMids = gl.getUniformLocation(prog, "u_mids");
     const uHighs = gl.getUniformLocation(prog, "u_highs");
     const uEnergy = gl.getUniformLocation(prog, "u_energy");
-    const uGlow = gl.getUniformLocation(prog, "u_glow");
-    const uSpeed = gl.getUniformLocation(prog, "u_speed");
-    const uMode = gl.getUniformLocation(prog, "u_mode");
     const uC1 = gl.getUniformLocation(prog, "u_c1");
     const uC2 = gl.getUniformLocation(prog, "u_c2");
     const uC3 = gl.getUniformLocation(prog, "u_c3");
@@ -398,250 +813,306 @@
     resize();
 
     // ══════════════════════════════════════════════════════════════════════════
-    // 2. Audio Analysis & Synthesis Engine
+    // 2. Waveform & UI Renderer
     // ══════════════════════════════════════════════════════════════════════════
-    let audioCtx = null;
-    let analyser = null;
-    let dataArray = null;
+    const waveformBarsContainer = document.getElementById("waveformBars");
+    const NUM_BARS = 48;
+    for (let i = 0; i < NUM_BARS; i++) {
+      const bar = document.createElement("div");
+      bar.className = "wave-bar";
+      const heightPercent = 15 + Math.sin((i / NUM_BARS) * Math.PI) * 55 + (Math.sin(i * 1.5) * 15);
+      bar.style.height = Math.max(10, Math.min(100, heightPercent)) + "%";
+      waveformBarsContainer.appendChild(bar);
+    }
+
+    // Status Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("statusClock").innerText = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // 3. Audio & YouTube Playback Engine
+    // ══════════════════════════════════════════════════════════════════════════
     let isPlaying = false;
-    let synthTimer = null;
-    let audioElement = null;
+    let isLiked = false;
+    let progressSeconds = 0;
+    let totalSeconds = 210;
+    let ytPlayer = null;
+    let ytReady = false;
+    let currentYtId = "";
 
-    let bassVal = 0, midsVal = 0, highsVal = 0, energyVal = 0;
-    let glowVal = 1.4, speedVal = 1.0, modeVal = 0;
+    let currentColors = {
+      c1: [0.08, 0.85, 0.55],
+      c2: [0.02, 0.65, 0.82],
+      c3: [0.65, 0.95, 0.35],
+      bg: [0.03, 0.04, 0.03]
+    };
 
-    const THEMES = [
-      { c1: [0.06, 0.72, 0.95], c2: [0.92, 0.15, 0.75], c3: [0.55, 0.25, 0.98], bg: [0.03, 0.04, 0.05] }, // Cyberpunk
-      { c1: [0.08, 0.85, 0.55], c2: [0.02, 0.65, 0.82], c3: [0.65, 0.95, 0.35], bg: [0.02, 0.04, 0.03] }, // Emerald
-      { c1: [0.98, 0.45, 0.12], c2: [0.92, 0.15, 0.45], c3: [1.00, 0.78, 0.18], bg: [0.05, 0.02, 0.03] }, // Sunset
-      { c1: [0.65, 0.28, 0.98], c2: [0.25, 0.45, 0.98], c3: [0.95, 0.35, 0.85], bg: [0.04, 0.02, 0.06] }  // Amethyst
-    ];
-    let curTheme = THEMES[0];
+    // Load YouTube IFrame API
+    const ytTag = document.createElement("script");
+    ytTag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(ytTag);
 
-    function initAudio() {
-      if (audioCtx) return;
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new AudioContext();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.85;
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-    }
-
-    // High quality synthesized ambient beat loop (Runs directly without any external file)
-    function startAmbientSynth() {
-      if (!audioCtx) initAudio();
-      if (audioCtx.state === "suspended") audioCtx.resume();
-
-      const chords = [
-        [220.00, 261.63, 329.63, 392.00], // Am7
-        [174.61, 220.00, 261.63, 329.63], // Fmaj7
-        [130.81, 164.81, 196.00, 246.94], // Cmaj7
-        [196.00, 246.94, 293.66, 349.23]  // G7
-      ];
-      let chordIdx = 0;
-
-      function playChord() {
-        if (!isPlaying || audioElement) return;
-        const now = audioCtx.currentTime;
-        const freqs = chords[chordIdx % chords.length];
-        chordIdx++;
-
-        // Kick / Sub Bass Pulse
-        const oscBass = audioCtx.createOscillator();
-        const gainBass = audioCtx.createGain();
-        oscBass.frequency.setValueAtTime(110, now);
-        oscBass.frequency.exponentialRampToValueAtTime(35, now + 0.35);
-        gainBass.gain.setValueAtTime(0.8, now);
-        gainBass.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-        oscBass.connect(gainBass);
-        gainBass.connect(analyser);
-        analyser.connect(audioCtx.destination);
-        oscBass.start(now);
-        oscBass.stop(now + 0.6);
-
-        // Synth Chord Pad
-        freqs.forEach((f, i) => {
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-          const filter = audioCtx.createBiquadFilter();
-          osc.type = "sawtooth";
-          osc.frequency.setValueAtTime(f, now);
-          filter.type = "lowpass";
-          filter.frequency.setValueAtTime(800 + Math.sin(now) * 400, now);
-          gain.gain.setValueAtTime(0.001, now);
-          gain.gain.linearRampToValueAtTime(0.05, now + 0.4);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.4);
-          osc.connect(filter);
-          filter.connect(gain);
-          gain.connect(analyser);
-          osc.start(now);
-          osc.stop(now + 2.5);
-        });
-
-        synthTimer = setTimeout(playChord, 1600);
-      }
-      playChord();
-    }
-
-    function toggleDemoAudio() {
-      initAudio();
-      if (audioElement) {
-        audioElement.pause();
-        audioElement = null;
-      }
-      isPlaying = !isPlaying;
-      const btn = document.getElementById("btnPlayDemo");
-      const icon = document.getElementById("playIcon");
-      const label = document.getElementById("playLabel");
-
-      if (isPlaying) {
-        icon.innerText = "⏸";
-        label.innerText = "Pause Demo";
-        btn.classList.add("btn-primary");
-        startAmbientSynth();
-      } else {
-        icon.innerText = "▶";
-        label.innerText = "Play Demo Audio";
-        clearTimeout(synthTimer);
-      }
-    }
-
-    async function toggleMicrophone() {
-      initAudio();
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        const src = audioCtx.createMediaStreamSource(stream);
-        src.connect(analyser);
-        document.getElementById("btnMic").innerText = "🔴 Mic Active";
-        isPlaying = true;
-      } catch (err) {
-        alert("Microphone permission denied or not supported.");
-      }
-    }
-
-    function handleFileSelect(e) {
-      initAudio();
-      const file = e.target.files[0];
-      if (!file) return;
-      if (synthTimer) clearTimeout(synthTimer);
-      if (audioElement) audioElement.pause();
-
-      audioElement = new Audio(URL.createObjectURL(file));
-      const src = audioCtx.createMediaElementSource(audioElement);
-      src.connect(analyser);
-      analyser.connect(audioCtx.destination);
-      audioElement.play();
-      isPlaying = true;
-      document.getElementById("playIcon").innerText = "⏸";
-      document.getElementById("playLabel").innerText = file.name.substring(0, 16) + "...";
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // 3. UI Handlers
-    // ══════════════════════════════════════════════════════════════════════════
-    function setTheme(idx) {
-      curTheme = THEMES[idx];
-      document.querySelectorAll(".preset-pill").forEach((el, i) => {
-        if (i < 4) el.classList.toggle("active", i === idx);
+    window.onYouTubeIframeAPIReady = function() {
+      ytPlayer = new YT.Player("yt-player", {
+        height: "100",
+        width: "100",
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          playsinline: 1,
+          origin: window.location.origin
+        },
+        events: {
+          onReady: () => { 
+            ytReady = true;
+            // Pre-load default soothing track
+            loadSampleYt('jfKfPfyJRdk', 'lofi hip hop radio - beats to relax/study to', 'Lofi Girl');
+          },
+          onStateChange: onYtStateChange
+        }
       });
+    };
+
+    function onYtStateChange(e) {
+      if (e.data === YT.PlayerState.PLAYING) {
+        isPlaying = true;
+        updatePlayStateUI();
+      } else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.ENDED) {
+        isPlaying = false;
+        updatePlayStateUI();
+      }
     }
 
-    function setVisualizerMode(mode) {
-      modeVal = mode;
-      document.getElementById("modeFluid").classList.toggle("active", mode === 0);
-      document.getElementById("modeWaves").classList.toggle("active", mode === 1);
-      document.getElementById("modeBoth").classList.toggle("active", mode === 2);
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      if (ytPlayer && ytReady && currentYtId) {
+        if (isPlaying) ytPlayer.playVideo();
+        else ytPlayer.pauseVideo();
+      }
+      updatePlayStateUI();
     }
 
-    function updateGlow(val) { glowVal = parseFloat(val); }
-    function updateSpeed(val) { speedVal = parseFloat(val); }
-
-    let uiVisible = true;
-    function toggleUIVisibility() {
-      uiVisible = !uiVisible;
-      document.getElementById("uiLayer").style.opacity = uiVisible ? "1" : "0";
-      document.body.style.cursor = uiVisible ? "default" : "none";
+    function updatePlayStateUI() {
+      const icon = document.getElementById("playIconSvg");
+      if (isPlaying) {
+        icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+      } else {
+        icon.innerHTML = '<polygon points="6 3 20 12 6 21 6 3"/>';
+      }
     }
 
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "h" || e.key === "H") toggleUIVisibility();
-      if (e.key === "Escape" && !uiVisible) toggleUIVisibility();
-      if (e.key === " ") { e.preventDefault(); toggleDemoAudio(); }
+    function setVolume(val) {
+      if (ytPlayer && ytReady) {
+        ytPlayer.setVolume(val * 100);
+      }
+    }
+
+    function toggleLike() {
+      isLiked = !isLiked;
+      document.getElementById("btnLike").classList.toggle("liked", isLiked);
+    }
+
+    function handleSeek(e) {
+      const rect = waveformBarsContainer.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const pct = Math.max(0, Math.min(1, clickX / rect.width));
+      progressSeconds = pct * totalSeconds;
+      if (ytPlayer && ytReady && currentYtId) {
+        ytPlayer.seekTo(progressSeconds, true);
+      }
+      updateWaveformUI();
+    }
+
+    function updateWaveformUI() {
+      const pct = progressSeconds / totalSeconds;
+      const activeBarCount = Math.floor(pct * NUM_BARS);
+      const bars = waveformBarsContainer.children;
+      for (let i = 0; i < NUM_BARS; i++) {
+        bars[i].classList.toggle("active", i <= activeBarCount);
+      }
+      document.getElementById("timeCurrent").innerText = formatTime(progressSeconds);
+      document.getElementById("timeTotal").innerText = formatTime(totalSeconds);
+    }
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return m + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    function skipPrev() {
+      if (ytPlayer && ytReady) ytPlayer.seekTo(0, true);
+    }
+    function skipNext() {
+      loadSampleYt('4xDzrJKXOOY', 'synthwave radio - chill synth / retro beats', 'Lofi Girl Synthwave');
+    }
+    function toggleShuffle() {}
+    function toggleRepeat() {}
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // 4. YouTube Link Fetcher
+    // ══════════════════════════════════════════════════════════════════════════
+    function extractYouTubeId(url) {
+      const reg = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+      const match = url.match(reg);
+      return match ? match[1] : null;
+    }
+
+    async function fetchCustomYtTrack() {
+      const input = document.getElementById("ytUrlInput");
+      const url = input.value.trim();
+      if (!url) return;
+      const vid = extractYouTubeId(url);
+      if (!vid) {
+        alert("Please enter a valid YouTube URL (e.g. https://www.youtube.com/watch?v=...)");
+        return;
+      }
+      loadYtTrackById(vid);
+      closeYtModal();
+    }
+
+    function loadSampleYt(id, title, artist) {
+      loadYtTrackById(id, title, artist);
+      closeYtModal();
+    }
+
+    async function loadYtTrackById(vid, fallbackTitle, fallbackArtist) {
+      currentYtId = vid;
+      const thumbUrl = "https://i.ytimg.com/vi/" + vid + "/hqdefault.jpg";
+      
+      document.getElementById("albumImg").src = thumbUrl;
+      document.getElementById("albumGlow").style.backgroundImage = "url('" + thumbUrl + "')";
+
+      try {
+        const res = await fetch("https://noembed.com/embed?url=" + encodeURIComponent("https://www.youtube.com/watch?v=" + vid));
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById("trackTitle").innerText = data.title || fallbackTitle || "YouTube Audio";
+          document.getElementById("trackArtist").innerText = (data.author_name || fallbackArtist || "YouTube") + " • Sonora Live Engine";
+        }
+      } catch (e) {
+        if (fallbackTitle) document.getElementById("trackTitle").innerText = fallbackTitle;
+        if (fallbackArtist) document.getElementById("trackArtist").innerText = fallbackArtist;
+      }
+
+      extractColorsFromImage(thumbUrl);
+
+      if (ytPlayer && ytReady) {
+        ytPlayer.loadVideoById(vid);
+        isPlaying = true;
+        updatePlayStateUI();
+      }
+    }
+
+    function extractColorsFromImage(url) {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.src = url;
+      img.onload = () => {
+        try {
+          const c = document.createElement("canvas");
+          const ctx = c.getContext("2d");
+          c.width = 50; c.height = 50;
+          ctx.drawImage(img, 0, 0, 50, 50);
+          const data = ctx.getImageData(0, 0, 50, 50).data;
+          
+          let r = 0, g = 0, b = 0;
+          for (let i = 0; i < data.length; i += 16) {
+            r += data[i]; g += data[i+1]; b += data[i+2];
+          }
+          const count = data.length / 16;
+          r = Math.min(1.0, (r / count) / 255 * 1.3);
+          g = Math.min(1.0, (g / count) / 255 * 1.3);
+          b = Math.min(1.0, (b / count) / 255 * 1.3);
+
+          currentColors.c1 = [r, g, b];
+          currentColors.c2 = [b, r, g];
+          currentColors.c3 = [g, b, r];
+        } catch (e) {}
+      };
+    }
+
+    function openYtModal() { document.getElementById("ytModal").classList.add("open"); }
+    function closeYtModal() { document.getElementById("ytModal").classList.remove("open"); }
+
+    // Clean Visualizer mode
+    let cleanVisualizer = false;
+    let hintTimeout = null;
+
+    function toggleCleanVisualizer() {
+      cleanVisualizer = !cleanVisualizer;
+      document.getElementById("nowPlayingUI").style.opacity = cleanVisualizer ? "0" : "1";
+      document.body.style.cursor = cleanVisualizer ? "none" : "default";
+      const hint = document.getElementById("exitHint");
+      if (cleanVisualizer) {
+        hint.classList.add("visible");
+        clearTimeout(hintTimeout);
+        hintTimeout = setTimeout(() => { hint.classList.remove("visible"); }, 2500);
+      } else {
+        hint.classList.remove("visible");
+      }
+    }
+
+    window.addEventListener("mousemove", () => {
+      if (cleanVisualizer) {
+        const hint = document.getElementById("exitHint");
+        hint.classList.add("visible");
+        clearTimeout(hintTimeout);
+        hintTimeout = setTimeout(() => { hint.classList.remove("visible"); }, 2500);
+      }
     });
 
-    function toggleFullscreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      } else {
-        document.exitFullscreen().catch(() => {});
-      }
-    }
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "h" || e.key === "H") toggleCleanVisualizer();
+      if (e.key === "Escape" && cleanVisualizer) toggleCleanVisualizer();
+      if (e.key === " ") { e.preventDefault(); togglePlay(); }
+    });
 
     // ══════════════════════════════════════════════════════════════════════════
-    // 4. Render Loop (60 FPS)
+    // 5. 60 FPS GPU Render Loop
     // ══════════════════════════════════════════════════════════════════════════
     const startTime = Date.now();
-    let frameCount = 0;
-    let lastFpsTime = Date.now();
+    let bass = 0.15, mids = 0.15, highs = 0.15;
 
     function render() {
-      const now = (Date.now() - startTime) / 1000;
+      const t = (Date.now() - startTime) / 1000;
 
-      // Extract frequency spectrum
-      if (analyser && isPlaying) {
-        analyser.getByteFrequencyData(dataArray);
-        // Bass (0-6)
-        let bSum = 0;
-        for (let i = 0; i < 6; i++) bSum += dataArray[i];
-        bassVal += ((bSum / (6 * 255)) - bassVal) * 0.35;
+      if (isPlaying) {
+        progressSeconds += 1 / 60;
+        if (progressSeconds >= totalSeconds) progressSeconds = 0;
+        updateWaveformUI();
 
-        // Mids (7-30)
-        let mSum = 0;
-        for (let i = 7; i < 30; i++) mSum += dataArray[i];
-        midsVal += ((mSum / (23 * 255)) - midsVal) * 0.25;
+        const beatTime = t * 2.0;
+        const kick = Math.pow(Math.max(0, Math.sin(beatTime * Math.PI)), 4.0);
+        const snare = Math.pow(Math.max(0, Math.sin((beatTime + 1.0) * Math.PI)), 6.0);
 
-        // Highs (31-90)
-        let hSum = 0;
-        for (let i = 31; i < 90; i++) hSum += dataArray[i];
-        highsVal += ((hSum / (59 * 255)) - highsVal) * 0.25;
-
-        energyVal = (bassVal + midsVal + highsVal) / 3;
+        bass += (kick * 0.7 + 0.15 - bass) * 0.35;
+        mids += (snare * 0.5 + 0.12 - mids) * 0.25;
+        highs += (Math.sin(t * 8.0) * 0.2 + 0.2 - highs) * 0.20;
       } else {
-        // Idle gentle breathing
-        bassVal += (Math.sin(now * 1.5) * 0.08 + 0.12 - bassVal) * 0.05;
-        midsVal += (Math.cos(now * 1.2) * 0.06 + 0.10 - midsVal) * 0.05;
-        highsVal += (Math.sin(now * 0.8) * 0.04 + 0.08 - highsVal) * 0.05;
-        energyVal = 0.1;
+        bass += (Math.sin(t * 1.5) * 0.08 + 0.12 - bass) * 0.05;
+        mids += (Math.cos(t * 1.2) * 0.06 + 0.10 - mids) * 0.05;
+        highs += (Math.sin(t * 0.8) * 0.04 + 0.08 - highs) * 0.05;
       }
 
-      document.getElementById("meterBass").style.width = Math.min(100, Math.round(bassVal * 160)) + "%";
+      gl.uniform1f(uTime, t);
+      gl.uniform1f(uBass, bass);
+      gl.uniform1f(uMids, mids);
+      gl.uniform1f(uHighs, highs);
+      gl.uniform1f(uEnergy, (bass + mids + highs) / 3);
 
-      // Uniform updates
-      gl.uniform1f(uTime, now);
-      gl.uniform1f(uBass, bassVal);
-      gl.uniform1f(uMids, midsVal);
-      gl.uniform1f(uHighs, highsVal);
-      gl.uniform1f(uEnergy, energyVal);
-      gl.uniform1f(uGlow, glowVal);
-      gl.uniform1f(uSpeed, speedVal);
-      gl.uniform1f(uMode, modeVal);
-
-      gl.uniform3fv(uC1, curTheme.c1);
-      gl.uniform3fv(uC2, curTheme.c2);
-      gl.uniform3fv(uC3, curTheme.c3);
-      gl.uniform3fv(uBg, curTheme.bg);
+      gl.uniform3fv(uC1, currentColors.c1);
+      gl.uniform3fv(uC2, currentColors.c2);
+      gl.uniform3fv(uC3, currentColors.c3);
+      gl.uniform3fv(uBg, currentColors.bg);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-      // FPS tracking
-      frameCount++;
-      if (Date.now() - lastFpsTime >= 1000) {
-        document.getElementById("fpsCounter").innerText = frameCount + " FPS";
-        frameCount = 0;
-        lastFpsTime = Date.now();
-      }
-
       requestAnimationFrame(render);
     }
     render();
